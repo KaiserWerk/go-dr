@@ -1,0 +1,12 @@
+<law id="bgb_535" >
+  <title>Buergerliches Gesetzbuch</title>
+  <shortTitle>BGB</shortTitle>
+  <jurisdiction>DE-BUND</jurisdiction>
+  <type>law</type>
+  <sections>
+    <section id="535">
+      <heading>Inhalt und Hauptpflichten des Mietvertrags</heading>
+      <content>Durch den Mietvertrag wird der Vermieter verpflichtet.</content>
+    </section>
+  </sections>
+</law>
