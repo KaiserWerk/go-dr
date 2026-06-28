@@ -51,8 +51,9 @@ go get github.com/KaiserWerk/go-dr
 	- uses the same normalized reference extraction pipeline as Bundesrecht
 - `github.com/KaiserWerk/go-dr/sources/juris`:
 	- shared adapter for Juris-based state portals
-	- configurable base URL, selector, jurisdiction, and listing URL
-	- preset constructors for BW, BE, HE, MV, RP, ST, SH, TH
+	- configurable base URL, selector, allowed hosts, jurisdiction, and listing URL
+	- host-aware list extraction with stronger URL/title/id normalization
+	- tuned state profiles and preset constructors for BW, BE, HE, MV, RP, ST, SH, TH
 - `github.com/KaiserWerk/go-dr/exporter`:
 	- JSON marshaling helpers for single and multiple documents
 	- JSONL helpers for one-document-per-line exports

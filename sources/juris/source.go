@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"path"
 	"strings"
 
 	godr "github.com/KaiserWerk/go-dr"
 	"github.com/KaiserWerk/go-dr/crawler"
-	"github.com/PuerkitoBio/goquery"
 )
 
 // Config defines one Juris-based state portal connection.
@@ -19,6 +17,7 @@ type Config struct {
 	BaseURL      string
 	ListURL      string
 	ListSelector string
+	AllowedHosts []string
 	Jurisdiction string
 }
 
@@ -39,6 +38,7 @@ func NewSource(cfg Config) Source {
 	if strings.TrimSpace(cfg.Name) == "" {
 		cfg.Name = "juris"
 	}
+	cfg = applyProfile(cfg)
 	if strings.TrimSpace(cfg.BaseURL) == "" {
 		cfg.BaseURL = "https://www.landesrecht.example/"
 	}
@@ -46,7 +46,12 @@ func NewSource(cfg Config) Source {
 		cfg.ListURL = cfg.BaseURL
 	}
 	if strings.TrimSpace(cfg.ListSelector) == "" {
-		cfg.ListSelector = `a[href*="jportal"], a[href*="doc.id"], a[href*="doc.part"], a[href*="quelle.jlink"]`
+		cfg.ListSelector = defaultListSelector
+	}
+	if len(cfg.AllowedHosts) == 0 {
+		if u, err := url.Parse(cfg.BaseURL); err == nil && strings.TrimSpace(u.Host) != "" {
+			cfg.AllowedHosts = []string{strings.ToLower(strings.TrimSpace(u.Host))}
+		}
 	}
 	return Source{cfg: cfg}
 }
@@ -69,49 +74,7 @@ func (s Source) ListDocuments(ctx context.Context) ([]godr.DocumentRef, error) {
 		return nil, fmt.Errorf("list request failed with status %d", status)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(payload)))
-	if err != nil {
-		return nil, err
-	}
-
-	selector := s.cfg.ListSelector
-	seen := make(map[string]struct{})
-	refs := make([]godr.DocumentRef, 0)
-
-	doc.Find(selector).Each(func(i int, sel *goquery.Selection) {
-		href, ok := sel.Attr("href")
-		if !ok {
-			return
-		}
-		resolved := resolveURL(listURL, href)
-		if resolved == "" || !isLikelyJurisDocumentURL(resolved, s.cfg.BaseURL) {
-			return
-		}
-		if _, ok := seen[resolved]; ok {
-			return
-		}
-		seen[resolved] = struct{}{}
-
-		title := strings.TrimSpace(strings.Join(strings.Fields(sel.Text()), " "))
-		if title == "" {
-			title = strings.TrimSpace(sel.AttrOr("title", ""))
-		}
-
-		id := deriveIDFromURL(resolved)
-		if id == "" {
-			id = fmt.Sprintf("%s-%d", strings.ToLower(strings.TrimSpace(s.cfg.Name)), len(refs)+1)
-		}
-
-		refs = append(refs, godr.DocumentRef{
-			ID:  id,
-			URL: resolved,
-			Metadata: map[string]string{
-				"title": title,
-			},
-		})
-	})
-
-	return refs, nil
+	return parseListDocumentRefs(listURL, s.cfg, payload)
 }
 
 // FetchDocument downloads one Juris page and parses it into a LegalDocument.
@@ -189,36 +152,36 @@ func resolveURL(baseURL, href string) string {
 	return resolved.String()
 }
 
-func deriveIDFromURL(v string) string {
-	u, err := url.Parse(v)
-	if err != nil {
-		return ""
-	}
-
-	q := u.Query()
-	for _, key := range []string{"doc.id", "doknr", "id"} {
-		if val := strings.TrimSpace(q.Get(key)); val != "" {
-			return strings.ReplaceAll(key, ".", "_") + "-" + val
-		}
-	}
-
-	name := path.Base(u.Path)
-	name = strings.TrimSpace(strings.Trim(name, "/"))
-	if name == "" || name == "." {
-		return ""
-	}
-	return name
-}
-
-func isLikelyJurisDocumentURL(v, base string) bool {
+func isLikelyJurisDocumentURL(v, base string, allowedHosts []string) bool {
 	u, err := url.Parse(v)
 	if err != nil {
 		return false
 	}
+
+	host := strings.ToLower(strings.TrimSpace(u.Host))
+	if len(allowedHosts) > 0 {
+		ok := false
+		for _, allowed := range allowedHosts {
+			allowed = strings.ToLower(strings.TrimSpace(allowed))
+			if allowed == "" {
+				continue
+			}
+			if host == allowed {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return false
+		}
+	}
+
 	baseURL, err := url.Parse(base)
 	if err == nil {
 		if baseURL.Host != "" && !strings.EqualFold(baseURL.Host, u.Host) {
-			return false
+			if len(allowedHosts) == 0 {
+				return false
+			}
 		}
 	}
 
@@ -231,7 +194,6 @@ func isLikelyJurisDocumentURL(v, base string) bool {
 func BadenWuerttemberg() Source {
 	return NewSource(Config{
 		Name:         "baden-wuerttemberg",
-		BaseURL:      "https://www.landesrecht-bw.de/",
 		Jurisdiction: "DE-BW",
 	})
 }
@@ -239,7 +201,6 @@ func BadenWuerttemberg() Source {
 func Berlin() Source {
 	return NewSource(Config{
 		Name:         "berlin",
-		BaseURL:      "https://gesetze.berlin.de/",
 		Jurisdiction: "DE-BE",
 	})
 }
@@ -247,7 +208,6 @@ func Berlin() Source {
 func Hessen() Source {
 	return NewSource(Config{
 		Name:         "hessen",
-		BaseURL:      "https://www.rv.hessenrecht.hessen.de/",
 		Jurisdiction: "DE-HE",
 	})
 }
@@ -255,7 +215,6 @@ func Hessen() Source {
 func MecklenburgVorpommern() Source {
 	return NewSource(Config{
 		Name:         "mecklenburg-vorpommern",
-		BaseURL:      "https://www.landesrecht-mv.de/",
 		Jurisdiction: "DE-MV",
 	})
 }
@@ -263,7 +222,6 @@ func MecklenburgVorpommern() Source {
 func RheinlandPfalz() Source {
 	return NewSource(Config{
 		Name:         "rheinland-pfalz",
-		BaseURL:      "https://landesrecht.rlp.de/",
 		Jurisdiction: "DE-RP",
 	})
 }
@@ -271,7 +229,6 @@ func RheinlandPfalz() Source {
 func SachsenAnhalt() Source {
 	return NewSource(Config{
 		Name:         "sachsen-anhalt",
-		BaseURL:      "https://www.landesrecht.sachsen-anhalt.de/",
 		Jurisdiction: "DE-ST",
 	})
 }
@@ -279,7 +236,6 @@ func SachsenAnhalt() Source {
 func SchleswigHolstein() Source {
 	return NewSource(Config{
 		Name:         "schleswig-holstein",
-		BaseURL:      "https://www.gesetze-rechtsprechung.sh.juris.de/",
 		Jurisdiction: "DE-SH",
 	})
 }
@@ -287,7 +243,6 @@ func SchleswigHolstein() Source {
 func Thueringen() Source {
 	return NewSource(Config{
 		Name:         "thueringen",
-		BaseURL:      "https://landesrecht.thueringen.de/",
 		Jurisdiction: "DE-TH",
 	})
 }
