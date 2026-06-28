@@ -157,6 +157,7 @@ package yourpkg
 
 import (
 	"context"
+	"time"
 
 	godr "github.com/KaiserWerk/go-dr"
 	"github.com/KaiserWerk/go-dr/sources/bundesrecht"
@@ -174,6 +175,9 @@ func ingestBundesrecht(ctx context.Context) error {
 		Progress:        progress,
 		Workers:         8,
 		ContinueOnError: true,
+		ProgressSnapshotPath:  "state/bundesrecht-progress-report.json",
+		ProgressSnapshotEvery: 15 * time.Second,
+		ReportPath:            "state/bundesrecht-report-final.json",
 	})
 	if err != nil {
 		return err
@@ -181,6 +185,50 @@ func ingestBundesrecht(ctx context.Context) error {
 
 	_ = report
 	return nil
+}
+```
+
+## Bundesrecht To PostgreSQL Helper Example
+
+```go
+package yourpkg
+
+import (
+	"context"
+	"database/sql"
+	"time"
+
+	_ "github.com/lib/pq"
+
+	"github.com/KaiserWerk/go-dr/exporter"
+	"github.com/KaiserWerk/go-dr/sources/bundesrecht"
+)
+
+func ingestBundesrechtToPostgres(ctx context.Context, dsn string) error {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	store := exporter.NewPostgresStore(db)
+	if err := store.InitSchema(ctx); err != nil {
+		return err
+	}
+
+	_, err = bundesrecht.RunPipelineToPostgres(ctx, bundesrecht.PostgresPipelineConfig{
+		Store: store,
+		PipelineConfig: bundesrecht.PipelineConfig{
+			Source:                bundesrecht.Source{},
+			Progress:              &bundesrecht.FileProgressStore{Path: "state/bundesrecht-progress.json"},
+			Workers:               8,
+			ContinueOnError:       true,
+			ProgressSnapshotPath:  "state/bundesrecht-progress-report.json",
+			ProgressSnapshotEvery: 15 * time.Second,
+			ReportPath:            "state/bundesrecht-report-final.json",
+		},
+	})
+	return err
 }
 ```
 

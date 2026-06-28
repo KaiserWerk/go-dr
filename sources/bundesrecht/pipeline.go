@@ -51,6 +51,12 @@ type PipelineConfig struct {
 	Workers         int
 	ContinueOnError bool
 	MaxFailures     int
+	// ProgressSnapshotPath enables periodic JSON snapshots of current run metrics.
+	ProgressSnapshotPath string
+	// ProgressSnapshotEvery controls snapshot interval. Defaults to 10s when enabled.
+	ProgressSnapshotEvery time.Duration
+	// ReportPath writes the final completeness report as JSON.
+	ReportPath string
 }
 
 // PipelineFailure describes one failed fetch/store operation.
@@ -128,6 +134,7 @@ func RunPipeline(ctx context.Context, cfg PipelineConfig) (CompletenessReport, e
 	if err != nil {
 		report.FinishedAt = time.Now().UTC()
 		report.Duration = report.FinishedAt.Sub(report.StartedAt)
+		_ = persistReportArtifacts(cfg, report)
 		return report, err
 	}
 
@@ -145,6 +152,35 @@ func RunPipeline(ctx context.Context, cfg PipelineConfig) (CompletenessReport, e
 	state := &runState{missingIDs: make(map[string]struct{}, len(refs))}
 	for _, ref := range refs {
 		state.missingIDs[documentKey(ref)] = struct{}{}
+	}
+
+	stopSnapshots := make(chan struct{})
+	var snapshotWG sync.WaitGroup
+	if strings.TrimSpace(cfg.ProgressSnapshotPath) != "" {
+		every := cfg.ProgressSnapshotEvery
+		if every <= 0 {
+			every = 10 * time.Second
+		}
+		snapshotWG.Add(1)
+		go func() {
+			defer snapshotWG.Done()
+			ticker := time.NewTicker(every)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					snap := buildReportSnapshot(report, state, time.Now().UTC())
+					_ = writeJSONFile(cfg.ProgressSnapshotPath, snap)
+				case <-ctxRun.Done():
+					snap := buildReportSnapshot(report, state, time.Now().UTC())
+					_ = writeJSONFile(cfg.ProgressSnapshotPath, snap)
+					return
+				case <-stopSnapshots:
+					return
+				}
+			}
+		}()
 	}
 
 	workerFn := func() {
@@ -232,6 +268,8 @@ func RunPipeline(ctx context.Context, cfg PipelineConfig) (CompletenessReport, e
 	}
 	close(jobs)
 	wg.Wait()
+	close(stopSnapshots)
+	snapshotWG.Wait()
 
 	report.FinishedAt = time.Now().UTC()
 	report.Duration = report.FinishedAt.Sub(report.StartedAt)
@@ -243,17 +281,91 @@ func RunPipeline(ctx context.Context, cfg PipelineConfig) (CompletenessReport, e
 	report.Failed = append(report.Failed, state.failed...)
 	report.MissingDocumentID = state.missingList()
 
+	artifactErr := persistReportArtifacts(cfg, report)
+
 	if cfg.ContinueOnError {
-		return report, nil
+		return report, artifactErr
 	}
 	if state.firstErr != nil {
+		if artifactErr != nil {
+			return report, errors.Join(state.firstErr, artifactErr)
+		}
 		return report, state.firstErr
 	}
 	if ctxRun.Err() != nil {
+		if artifactErr != nil {
+			return report, errors.Join(ctxRun.Err(), artifactErr)
+		}
 		return report, ctxRun.Err()
+	}
+	if artifactErr != nil {
+		return report, artifactErr
 	}
 
 	return report, nil
+}
+
+func buildReportSnapshot(base CompletenessReport, state *runState, now time.Time) CompletenessReport {
+	if state == nil {
+		base.FinishedAt = now
+		base.Duration = now.Sub(base.StartedAt)
+		return base
+	}
+
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	base.FinishedAt = now
+	base.Duration = now.Sub(base.StartedAt)
+	base.TotalQueued = state.totalQueued
+	base.TotalFetched = state.totalFetched
+	base.TotalStored = state.totalStored
+	base.TotalFailed = state.totalFailed
+	base.SkippedCompleted = state.skippedDone
+	base.Failed = append([]PipelineFailure(nil), state.failed...)
+	base.MissingDocumentID = make([]string, 0, len(state.missingIDs))
+	for k := range state.missingIDs {
+		base.MissingDocumentID = append(base.MissingDocumentID, k)
+	}
+	sort.Strings(base.MissingDocumentID)
+	return base
+}
+
+func persistReportArtifacts(cfg PipelineConfig, report CompletenessReport) error {
+	var outErr error
+	if strings.TrimSpace(cfg.ProgressSnapshotPath) != "" {
+		if err := writeJSONFile(cfg.ProgressSnapshotPath, report); err != nil {
+			outErr = errors.Join(outErr, err)
+		}
+	}
+	if strings.TrimSpace(cfg.ReportPath) != "" {
+		if err := writeJSONFile(cfg.ReportPath, report); err != nil {
+			outErr = errors.Join(outErr, err)
+		}
+	}
+	return outErr
+}
+
+func writeJSONFile(path string, payload any) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+
+	raw, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, raw, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 func (s *runState) markQueued() {
