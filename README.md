@@ -11,7 +11,8 @@ Implemented foundations from the plan:
 - Phase 3: crawler client abstractions (retry, rate limit, snapshot)
 - Phase 4: parser interface plus HTML/XML base parsers and offline tests
 - Phase 5 (start): Bundesrecht source with TOC listing and XML ZIP fetch/parse
-- Phase 7 (start): NRW source skeleton for HTML-based ingestion
+- Phase 6 (start): Juris-based state source adapter skeleton
+- Phase 7 (start): NRW source with dedicated list/result-page extraction
 - Phase 8 (start): direct reference extraction during section parsing
 - Phase 10 (start): JSON and JSONL export package
 
@@ -44,9 +45,14 @@ go get github.com/KaiserWerk/go-dr
 	- section-level extraction of paragraph/article/law references
 	- support for chained references (for example i. V. m.) and multi-paragraph forms (`§§ ...`)
 - `github.com/KaiserWerk/go-dr/sources/nrw`:
-	- listing extraction from NRW HTML pages
+	- dedicated parsing for NRW list/result pages
+	- stronger URL/title/id extraction from NRW anchors and result rows
 	- document fetch and parse pipeline for NRW legal pages
 	- uses the same normalized reference extraction pipeline as Bundesrecht
+- `github.com/KaiserWerk/go-dr/sources/juris`:
+	- shared adapter for Juris-based state portals
+	- configurable base URL, selector, jurisdiction, and listing URL
+	- preset constructors for BW, BE, HE, MV, RP, ST, SH, TH
 - `github.com/KaiserWerk/go-dr/exporter`:
 	- JSON marshaling helpers for single and multiple documents
 	- JSONL helpers for one-document-per-line exports

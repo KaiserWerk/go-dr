@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"path"
 	"strings"
 
 	godr "github.com/KaiserWerk/go-dr"
 	"github.com/KaiserWerk/go-dr/crawler"
-	"github.com/PuerkitoBio/goquery"
 )
 
 const (
@@ -49,48 +47,7 @@ func (s Source) ListDocuments(ctx context.Context) ([]godr.DocumentRef, error) {
 		return nil, fmt.Errorf("list request failed with status %d", status)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(payload)))
-	if err != nil {
-		return nil, err
-	}
-
-	selector := s.listSelector()
-	seen := make(map[string]struct{})
-	refs := make([]godr.DocumentRef, 0)
-
-	doc.Find(selector).Each(func(i int, sel *goquery.Selection) {
-		href, ok := sel.Attr("href")
-		if !ok {
-			return
-		}
-		resolved := resolveURL(listURL, href)
-		if resolved == "" {
-			return
-		}
-		if !isLikelyNRWDocumentURL(resolved) {
-			return
-		}
-		if _, ok := seen[resolved]; ok {
-			return
-		}
-		seen[resolved] = struct{}{}
-
-		title := strings.TrimSpace(sel.Text())
-		id := deriveIDFromURL(resolved)
-		if id == "" {
-			id = fmt.Sprintf("nrw-%d", len(refs)+1)
-		}
-
-		refs = append(refs, godr.DocumentRef{
-			ID:  id,
-			URL: resolved,
-			Metadata: map[string]string{
-				"title": title,
-			},
-		})
-	})
-
-	return refs, nil
+	return parseListDocumentRefs(listURL, payload, s.listSelector())
 }
 
 // FetchDocument downloads one NRW document page and parses it into a LegalDocument.
@@ -146,7 +103,7 @@ func (s Source) listSelector() string {
 	if strings.TrimSpace(s.ListSelector) != "" {
 		return s.ListSelector
 	}
-	return "a[href]"
+	return defaultListSelector
 }
 
 func (s Source) ensureClient() HTTPClient {
@@ -178,19 +135,6 @@ func resolveURL(baseURL, href string) string {
 		return ""
 	}
 	return base.ResolveReference(u).String()
-}
-
-func deriveIDFromURL(v string) string {
-	u, err := url.Parse(v)
-	if err != nil {
-		return ""
-	}
-	name := path.Base(u.Path)
-	name = strings.TrimSpace(strings.Trim(name, "/"))
-	if name == "" || name == "." {
-		return ""
-	}
-	return name
 }
 
 func isLikelyNRWDocumentURL(v string) bool {
