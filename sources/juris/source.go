@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 
 	godr "github.com/KaiserWerk/go-dr"
@@ -16,6 +17,8 @@ type Config struct {
 	Name         string
 	BaseURL      string
 	ListURL      string
+	ListPath     string
+	ListQuery    map[string]string
 	ListSelector string
 	AllowedHosts []string
 	Jurisdiction string
@@ -43,7 +46,7 @@ func NewSource(cfg Config) Source {
 		cfg.BaseURL = "https://www.landesrecht.example/"
 	}
 	if strings.TrimSpace(cfg.ListURL) == "" {
-		cfg.ListURL = cfg.BaseURL
+		cfg.ListURL = buildListURL(cfg.BaseURL, cfg.ListPath, cfg.ListQuery)
 	}
 	if strings.TrimSpace(cfg.ListSelector) == "" {
 		cfg.ListSelector = defaultListSelector
@@ -54,6 +57,35 @@ func NewSource(cfg Config) Source {
 		}
 	}
 	return Source{cfg: cfg}
+}
+
+// Config returns a copy of the source config.
+func (s Source) Config() Config {
+	cfg := s.cfg
+	cfg.ListQuery = cloneStringMap(s.cfg.ListQuery)
+	cfg.AllowedHosts = append([]string(nil), s.cfg.AllowedHosts...)
+	return cfg
+}
+
+// WithListQuery returns a new source with merged query overrides and rebuilt list URL.
+func (s Source) WithListQuery(overrides map[string]string) Source {
+	cfg := s.Config()
+	if cfg.ListQuery == nil {
+		cfg.ListQuery = map[string]string{}
+	}
+	for k, v := range overrides {
+		k = strings.TrimSpace(k)
+		if k == "" {
+			continue
+		}
+		if strings.TrimSpace(v) == "" {
+			delete(cfg.ListQuery, k)
+			continue
+		}
+		cfg.ListQuery[k] = v
+	}
+	cfg.ListURL = buildListURL(cfg.BaseURL, cfg.ListPath, cfg.ListQuery)
+	return NewSource(cfg)
 }
 
 // Name implements godr.Source.
@@ -150,6 +182,48 @@ func resolveURL(baseURL, href string) string {
 	resolved := base.ResolveReference(u)
 	resolved.Fragment = ""
 	return resolved.String()
+}
+
+func buildListURL(baseURL, listPath string, query map[string]string) string {
+	base, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil {
+		return strings.TrimSpace(baseURL)
+	}
+
+	if strings.TrimSpace(listPath) != "" {
+		rel, err := url.Parse(strings.TrimSpace(listPath))
+		if err == nil {
+			base = base.ResolveReference(rel)
+		}
+	}
+
+	q := base.Query()
+	keys := make([]string, 0, len(query))
+	for k := range query {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := strings.TrimSpace(query[k])
+		if v == "" {
+			continue
+		}
+		q.Set(k, v)
+	}
+	base.RawQuery = q.Encode()
+	base.Fragment = ""
+	return base.String()
+}
+
+func cloneStringMap(in map[string]string) map[string]string {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
 func isLikelyJurisDocumentURL(v, base string, allowedHosts []string) bool {
