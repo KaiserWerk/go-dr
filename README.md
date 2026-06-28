@@ -97,22 +97,22 @@ import (
 )
 
 func fetchAndParse(url string) error {
-		c := crawler.NewClient(crawler.Config{
-				UserAgent: "go-dr/0.1",
-				Limiter:   crawler.NewLimiter(200 * time.Millisecond),
-				Retry: crawler.RetryPolicy{
-						MaxAttempts: 3,
-				},
-		})
+	c := crawler.NewClient(crawler.Config{
+			UserAgent: "go-dr/0.1",
+			Limiter:   crawler.NewLimiter(200 * time.Millisecond),
+			Retry: crawler.RetryPolicy{
+					MaxAttempts: 3,
+			},
+	})
 
-		_, payload, err := c.Get(context.Background(), url)
-		if err != nil {
-				return err
-		}
+	_, payload, err := c.Get(context.Background(), url)
+	if err != nil {
+			return err
+	}
 
-		p := parser.XMLDocumentParser{}
-		_, err = p.Parse(payload)
-		return err
+	p := parser.XMLDocumentParser{}
+	_, err = p.Parse(payload)
+	return err
 }
 ```
 
