@@ -111,6 +111,79 @@ func fetchAndParse(url string) error {
 }
 ```
 
+## PostgreSQL And pgvector Example
+
+```go
+package yourpkg
+
+import (
+	"context"
+	"database/sql"
+
+	_ "github.com/lib/pq"
+
+	"github.com/KaiserWerk/go-dr/exporter"
+)
+
+func persist(ctx context.Context, dsn string) error {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	store := exporter.NewPostgresStore(db)
+	if err := store.InitSchema(ctx); err != nil {
+		return err
+	}
+	if err := store.InitVectorSchema(ctx, 768); err != nil {
+		return err
+	}
+	if err := store.EnsureVectorCosineIndex(ctx, "", 100); err != nil {
+		return err
+	}
+
+	// Upsert documents via store.UpsertDocument(...) / store.UpsertDocuments(...)
+	// Upsert embeddings via store.UpsertEmbedding(...)
+	_, err = store.SearchSimilarChunks(ctx, make([]float32, 768), 10)
+	return err
+}
+```
+
+## Bundesrecht Completeness Pipeline Example
+
+```go
+package yourpkg
+
+import (
+	"context"
+
+	godr "github.com/KaiserWerk/go-dr"
+	"github.com/KaiserWerk/go-dr/sources/bundesrecht"
+)
+
+func ingestBundesrecht(ctx context.Context) error {
+	progress := &bundesrecht.FileProgressStore{Path: "state/bundesrecht-progress.json"}
+
+	report, err := bundesrecht.RunPipeline(ctx, bundesrecht.PipelineConfig{
+		Source: bundesrecht.Source{},
+		Sink: bundesrecht.SinkFunc(func(ctx context.Context, sourceName string, ref godr.DocumentRef, doc *godr.LegalDocument) error {
+			// persist doc here (for example exporter.PostgresStore)
+			return nil
+		}),
+		Progress:        progress,
+		Workers:         8,
+		ContinueOnError: true,
+	})
+	if err != nil {
+		return err
+	}
+
+	_ = report
+	return nil
+}
+```
+
 ## Tests
 
 ```bash
