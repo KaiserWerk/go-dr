@@ -68,3 +68,37 @@ func TestHTMLDocumentParser_ParseBodyDates(t *testing.T) {
 		t.Fatalf("unexpected EffectiveTo: %v", doc.EffectiveTo)
 	}
 }
+
+func TestHTMLDocumentParser_MetaBodyConflictPrefersValidRange(t *testing.T) {
+	raw := []byte(`<!doctype html><html><head><title>X</title><meta name="effectiveFrom" content="2022-01-01"/><meta name="effectiveTo" content="2021-01-01"/></head><body><p>Ausserkrafttreten: 2023-12-31.</p><section id="s1"><h2>A</h2><p>B</p></section></body></html>`)
+
+	p := HTMLDocumentParser{}
+	doc, err := p.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse html conflict dates: %v", err)
+	}
+
+	if doc.EffectiveFrom == nil || doc.EffectiveFrom.Format("2006-01-02") != "2022-01-01" {
+		t.Fatalf("unexpected EffectiveFrom: %v", doc.EffectiveFrom)
+	}
+	if doc.EffectiveTo == nil || doc.EffectiveTo.Format("2006-01-02") != "2023-12-31" {
+		t.Fatalf("unexpected EffectiveTo: %v", doc.EffectiveTo)
+	}
+}
+
+func TestHTMLDocumentParser_InvalidRangeDropsEffectiveTo(t *testing.T) {
+	raw := []byte(`<!doctype html><html><head><title>X</title><meta name="effectiveFrom" content="2024-01-01"/><meta name="effectiveTo" content="2023-01-01"/></head><body><section id="s1"><h2>A</h2><p>B</p></section></body></html>`)
+
+	p := HTMLDocumentParser{}
+	doc, err := p.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse html invalid range: %v", err)
+	}
+
+	if doc.EffectiveFrom == nil || doc.EffectiveFrom.Format("2006-01-02") != "2024-01-01" {
+		t.Fatalf("unexpected EffectiveFrom: %v", doc.EffectiveFrom)
+	}
+	if doc.EffectiveTo != nil {
+		t.Fatalf("expected EffectiveTo=nil for invalid range, got: %v", doc.EffectiveTo)
+	}
+}

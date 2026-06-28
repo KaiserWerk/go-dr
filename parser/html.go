@@ -59,8 +59,7 @@ func (p HTMLDocumentParser) Parse(raw []byte) (*godr.LegalDocument, error) {
 	metaPublished, metaEffFrom, metaEffTo := extractMetaDates(docSel)
 	bodyPublished, bodyEffFrom, bodyEffTo := extractBodyDates(docSel)
 	publishedAt := firstDate(metaPublished, bodyPublished)
-	effectiveFrom := firstDate(metaEffFrom, bodyEffFrom)
-	effectiveTo := firstDate(metaEffTo, bodyEffTo)
+	effectiveFrom, effectiveTo := resolveEffectiveRange(metaEffFrom, metaEffTo, bodyEffFrom, bodyEffTo)
 
 	return &godr.LegalDocument{
 		Title:         title,
@@ -77,7 +76,11 @@ func extractMetaDates(docSel *goquery.Document) (*time.Time, *time.Time, *time.T
 		return nil, nil, nil
 	}
 
-	metaVals := make([]string, 0, 12)
+	type metaEntry struct {
+		key     string
+		content string
+	}
+	metaVals := make([]metaEntry, 0, 12)
 	docSel.Find("meta").Each(func(i int, m *goquery.Selection) {
 		name := strings.ToLower(strings.TrimSpace(m.AttrOr("name", "")))
 		prop := strings.ToLower(strings.TrimSpace(m.AttrOr("property", "")))
@@ -89,33 +92,34 @@ func extractMetaDates(docSel *goquery.Document) (*time.Time, *time.Time, *time.T
 
 		key := name + "|" + prop + "|" + itemProp
 		if strings.Contains(key, "date") || strings.Contains(key, "publish") || strings.Contains(key, "inkraft") || strings.Contains(key, "valid") || strings.Contains(key, "gueltig") || strings.Contains(key, "gültig") {
-			metaVals = append(metaVals, content)
+			metaVals = append(metaVals, metaEntry{key: key, content: content})
 		}
 	})
 
 	var publishedAt *time.Time
 	var effectiveFrom *time.Time
 	var effectiveTo *time.Time
-	for _, v := range metaVals {
-		l := strings.ToLower(v)
+	for _, entry := range metaVals {
+		k := entry.key
+		l := strings.ToLower(entry.content)
 		switch {
-		case strings.Contains(l, "inkraft") || strings.Contains(l, "effectivefrom") || strings.Contains(l, "validfrom") || strings.Contains(l, "gültig ab") || strings.Contains(l, "gueltig ab"):
+		case strings.Contains(k, "effectivefrom") || strings.Contains(k, "validfrom") || strings.Contains(k, "inkraft") || strings.Contains(l, "inkraft") || strings.Contains(l, "effectivefrom") || strings.Contains(l, "validfrom") || strings.Contains(l, "gültig ab") || strings.Contains(l, "gueltig ab"):
 			if effectiveFrom == nil {
-				effectiveFrom = parseDateLoose(v)
+				effectiveFrom = parseDateLoose(entry.content)
 			}
-		case strings.Contains(l, "ausserkraft") || strings.Contains(l, "außerkraft") || strings.Contains(l, "effectiveto") || strings.Contains(l, "validto") || strings.Contains(l, "gültig bis") || strings.Contains(l, "gueltig bis"):
+		case strings.Contains(k, "effectiveto") || strings.Contains(k, "validto") || strings.Contains(k, "ausserkraft") || strings.Contains(k, "außerkraft") || strings.Contains(l, "ausserkraft") || strings.Contains(l, "außerkraft") || strings.Contains(l, "effectiveto") || strings.Contains(l, "validto") || strings.Contains(l, "gültig bis") || strings.Contains(l, "gueltig bis"):
 			if effectiveTo == nil {
-				effectiveTo = parseDateLoose(v)
+				effectiveTo = parseDateLoose(entry.content)
 			}
 		default:
 			if publishedAt == nil {
-				publishedAt = parseDateLoose(v)
+				publishedAt = parseDateLoose(entry.content)
 			}
 		}
 	}
 
 	if publishedAt == nil && len(metaVals) > 0 {
-		publishedAt = parseDateLoose(metaVals[0])
+		publishedAt = parseDateLoose(metaVals[0].content)
 	}
 	return publishedAt, effectiveFrom, effectiveTo
 }
@@ -159,6 +163,58 @@ func firstDate(values ...*time.Time) *time.Time {
 		}
 	}
 	return nil
+}
+
+func resolveEffectiveRange(metaFrom, metaTo, bodyFrom, bodyTo *time.Time) (*time.Time, *time.Time) {
+	from := firstDate(metaFrom, bodyFrom)
+	to := firstDate(metaTo, bodyTo)
+
+	if isRangeValid(from, to) {
+		return from, to
+	}
+
+	if from != nil {
+		if isRangeValid(from, bodyTo) {
+			return cloneTimePtr(from), cloneTimePtr(bodyTo)
+		}
+		if isRangeValid(from, nil) {
+			return cloneTimePtr(from), nil
+		}
+	}
+
+	if to != nil {
+		if isRangeValid(bodyFrom, to) {
+			return cloneTimePtr(bodyFrom), cloneTimePtr(to)
+		}
+		if isRangeValid(nil, to) {
+			return nil, cloneTimePtr(to)
+		}
+	}
+
+	if isRangeValid(bodyFrom, bodyTo) {
+		return cloneTimePtr(bodyFrom), cloneTimePtr(bodyTo)
+	}
+
+	if isRangeValid(bodyFrom, nil) {
+		return cloneTimePtr(bodyFrom), nil
+	}
+
+	return nil, nil
+}
+
+func isRangeValid(from, to *time.Time) bool {
+	if from == nil || to == nil {
+		return true
+	}
+	return !to.Before(*from)
+}
+
+func cloneTimePtr(v *time.Time) *time.Time {
+	if v == nil {
+		return nil
+	}
+	c := *v
+	return &c
 }
 
 func compactSpaces(v string) string {
