@@ -82,6 +82,7 @@ go get github.com/KaiserWerk/go-dr
 	- in-memory graph model for nodes/edges
 	- builder from normalized legal documents to graph nodes (laws, paragraphs, rulings)
 	- relation edges: references, cites, replaces, concretizes
+	- JSON and JSONL export helpers for graph snapshots, nodes, and edges
 
 ## Quick Example
 
@@ -89,11 +90,11 @@ go get github.com/KaiserWerk/go-dr
 package yourpkg
 
 import (
-		"context"
-		"time"
+	"context"
+	"time"
 
-		"github.com/KaiserWerk/go-dr/crawler"
-		"github.com/KaiserWerk/go-dr/parser"
+	"github.com/KaiserWerk/go-dr/crawler"
+	"github.com/KaiserWerk/go-dr/parser"
 )
 
 func fetchAndParse(url string) error {
@@ -234,6 +235,38 @@ func ingestBundesrechtToPostgres(ctx context.Context, dsn string) error {
 		},
 	})
 	return err
+}
+```
+
+## GraphRAG Export Example
+
+```go
+package yourpkg
+
+import (
+	"os"
+
+	"github.com/KaiserWerk/go-dr/graphrag"
+)
+
+func exportGraph(g *graphrag.Graph) error {
+	if err := os.WriteFile("graph.json", must(graphrag.MarshalGraph(g)), 0o644); err != nil {
+		return err
+	}
+	if err := os.WriteFile("graph-nodes.jsonl", must(graphrag.MarshalNodesJSONL(g)), 0o644); err != nil {
+		return err
+	}
+	if err := os.WriteFile("graph-edges.jsonl", must(graphrag.MarshalEdgesJSONL(g)), 0o644); err != nil {
+		return err
+	}
+	return nil
+}
+
+func must(b []byte, err error) []byte {
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 ```
 
