@@ -1,6 +1,21 @@
 package juris
 
-import "strings"
+import (
+	"net/url"
+	"sort"
+	"strings"
+)
+
+const (
+	ProfileBadenWuerttemberg     = "baden-wuerttemberg"
+	ProfileBerlin                = "berlin"
+	ProfileHessen                = "hessen"
+	ProfileMecklenburgVorpommern = "mecklenburg-vorpommern"
+	ProfileRheinlandPfalz        = "rheinland-pfalz"
+	ProfileSachsenAnhalt         = "sachsen-anhalt"
+	ProfileSchleswigHolstein     = "schleswig-holstein"
+	ProfileThueringen            = "thueringen"
+)
 
 // profile contains tuned entry points and selectors for Juris-based portals.
 type profile struct {
@@ -13,56 +28,56 @@ type profile struct {
 }
 
 var portalProfiles = map[string]profile{
-	"baden-wuerttemberg": {
+	ProfileBadenWuerttemberg: {
 		baseURL:      "https://www.landesrecht-bw.de/",
 		listPath:     "/jportal/",
 		listQuery:    map[string]string{"quelle": "jlink", "query": "*", "showdoccase": "1"},
 		listSelector: `a[href*="quelle=jlink"], a[href*="doc.id"], a[href*="jportal"]`,
 		allowedHosts: []string{"www.landesrecht-bw.de", "landesrecht-bw.de"},
 	},
-	"berlin": {
+	ProfileBerlin: {
 		baseURL:      "https://gesetze.berlin.de/",
 		listPath:     "/jportal/",
 		listQuery:    map[string]string{"quelle": "jlink", "query": "*", "showdoccase": "1"},
 		listSelector: `a[href*="quelle=jlink"], a[href*="doc.id"], a[href*="jportal"]`,
 		allowedHosts: []string{"gesetze.berlin.de"},
 	},
-	"hessen": {
+	ProfileHessen: {
 		baseURL:      "https://www.rv.hessenrecht.hessen.de/",
 		listPath:     "/jportal/",
 		listQuery:    map[string]string{"quelle": "jlink", "query": "*", "showdoccase": "1"},
 		listSelector: `a[href*="quelle=jlink"], a[href*="doc.id"], a[href*="jportal"]`,
 		allowedHosts: []string{"www.rv.hessenrecht.hessen.de", "rv.hessenrecht.hessen.de"},
 	},
-	"mecklenburg-vorpommern": {
+	ProfileMecklenburgVorpommern: {
 		baseURL:      "https://www.landesrecht-mv.de/",
 		listPath:     "/jportal/",
 		listQuery:    map[string]string{"quelle": "jlink", "query": "*", "showdoccase": "1"},
 		listSelector: `a[href*="quelle=jlink"], a[href*="doc.id"], a[href*="jportal"]`,
 		allowedHosts: []string{"www.landesrecht-mv.de", "landesrecht-mv.de"},
 	},
-	"rheinland-pfalz": {
+	ProfileRheinlandPfalz: {
 		baseURL:      "https://landesrecht.rlp.de/",
 		listPath:     "/jportal/",
 		listQuery:    map[string]string{"quelle": "jlink", "query": "*", "showdoccase": "1"},
 		listSelector: `a[href*="quelle=jlink"], a[href*="doc.id"], a[href*="jportal"]`,
 		allowedHosts: []string{"landesrecht.rlp.de"},
 	},
-	"sachsen-anhalt": {
+	ProfileSachsenAnhalt: {
 		baseURL:      "https://www.landesrecht.sachsen-anhalt.de/",
 		listPath:     "/jportal/",
 		listQuery:    map[string]string{"quelle": "jlink", "query": "*", "showdoccase": "1"},
 		listSelector: `a[href*="quelle=jlink"], a[href*="doc.id"], a[href*="jportal"]`,
 		allowedHosts: []string{"www.landesrecht.sachsen-anhalt.de", "landesrecht.sachsen-anhalt.de"},
 	},
-	"schleswig-holstein": {
+	ProfileSchleswigHolstein: {
 		baseURL:      "https://www.gesetze-rechtsprechung.sh.juris.de/",
 		listPath:     "/jportal/",
 		listQuery:    map[string]string{"quelle": "jlink", "query": "*", "showdoccase": "1"},
 		listSelector: `a[href*="quelle=jlink"], a[href*="doc.id"], a[href*="jportal"]`,
 		allowedHosts: []string{"www.gesetze-rechtsprechung.sh.juris.de", "gesetze-rechtsprechung.sh.juris.de"},
 	},
-	"thueringen": {
+	ProfileThueringen: {
 		baseURL:      "https://landesrecht.thueringen.de/",
 		listPath:     "/jportal/",
 		listQuery:    map[string]string{"quelle": "jlink", "query": "*", "showdoccase": "1"},
@@ -71,8 +86,20 @@ var portalProfiles = map[string]profile{
 	},
 }
 
+var profileJurisdiction = map[string]string{
+	ProfileBadenWuerttemberg:     "DE-BW",
+	ProfileBerlin:                "DE-BE",
+	ProfileHessen:                "DE-HE",
+	ProfileMecklenburgVorpommern: "DE-MV",
+	ProfileRheinlandPfalz:        "DE-RP",
+	ProfileSachsenAnhalt:         "DE-ST",
+	ProfileSchleswigHolstein:     "DE-SH",
+	ProfileThueringen:            "DE-TH",
+}
+
 func applyProfile(cfg Config) Config {
-	p, ok := portalProfiles[cfg.Name]
+	name := strings.TrimSpace(cfg.Name)
+	p, ok := portalProfiles[name]
 	if !ok {
 		return cfg
 	}
@@ -97,7 +124,31 @@ func applyProfile(cfg Config) Config {
 	if cfg.ListURL == "" {
 		cfg.ListURL = buildListURL(cfg.BaseURL, cfg.ListPath, cfg.ListQuery)
 	}
+	if cfg.Jurisdiction == "" {
+		cfg.Jurisdiction = profileJurisdiction[name]
+	}
 	return cfg
+}
+
+// ProfileNames returns all known profile identifiers in stable order.
+func ProfileNames() []string {
+	names := make([]string, 0, len(portalProfiles))
+	for name := range portalProfiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// NewProfileSource returns a source with profile defaults and jurisdiction.
+func NewProfileSource(profileName string) Source {
+	profileName = strings.TrimSpace(profileName)
+	return NewSource(Config{Name: profileName, Jurisdiction: profileJurisdiction[profileName]})
+}
+
+// NewProfileSourceWithQuery returns a profile source and applies query overrides.
+func NewProfileSourceWithQuery(profileName string, overrides map[string]string) Source {
+	return NewProfileSource(profileName).WithListQuery(overrides)
 }
 
 // BootstrapListQuery returns the profile default query map for a given state profile name.
@@ -118,4 +169,35 @@ func copyStringMap(in map[string]string) map[string]string {
 		out[k] = v
 	}
 	return out
+}
+
+func buildURL(baseURL, relPath string, query map[string]string) string {
+	base, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil {
+		return strings.TrimSpace(baseURL)
+	}
+
+	if strings.TrimSpace(relPath) != "" {
+		rel, err := url.Parse(strings.TrimSpace(relPath))
+		if err == nil {
+			base = base.ResolveReference(rel)
+		}
+	}
+
+	q := base.Query()
+	keys := make([]string, 0, len(query))
+	for k := range query {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := strings.TrimSpace(query[k])
+		if v == "" {
+			continue
+		}
+		q.Set(k, v)
+	}
+	base.RawQuery = q.Encode()
+	base.Fragment = ""
+	return base.String()
 }

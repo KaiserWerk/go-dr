@@ -54,7 +54,9 @@ go get github.com/KaiserWerk/go-dr
 	- configurable base URL, selector, allowed hosts, jurisdiction, listing path/query, and listing URL
 	- host-aware list extraction with stronger URL/title/id normalization
 	- tuned state profiles and preset constructors for BW, BE, HE, MV, RP, ST, SH, TH
-	- query bootstrap helpers via profile defaults and `WithListQuery(...)`
+	- query bootstrap helpers via profile defaults and WithListQuery(...)
+	- convenience constructors like BerlinWithQuery(...), HessenWithQuery(...)
+	- profile helpers: ProfileNames(), NewProfileSource(...), NewProfileSourceWithQuery(...)
 - `github.com/KaiserWerk/go-dr/exporter`:
 	- JSON marshaling helpers for single and multiple documents
 	- JSONL helpers for one-document-per-line exports

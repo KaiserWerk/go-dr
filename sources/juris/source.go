@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"sort"
 	"strings"
 
 	godr "github.com/KaiserWerk/go-dr"
@@ -185,34 +184,7 @@ func resolveURL(baseURL, href string) string {
 }
 
 func buildListURL(baseURL, listPath string, query map[string]string) string {
-	base, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil {
-		return strings.TrimSpace(baseURL)
-	}
-
-	if strings.TrimSpace(listPath) != "" {
-		rel, err := url.Parse(strings.TrimSpace(listPath))
-		if err == nil {
-			base = base.ResolveReference(rel)
-		}
-	}
-
-	q := base.Query()
-	keys := make([]string, 0, len(query))
-	for k := range query {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		v := strings.TrimSpace(query[k])
-		if v == "" {
-			continue
-		}
-		q.Set(k, v)
-	}
-	base.RawQuery = q.Encode()
-	base.Fragment = ""
-	return base.String()
+	return buildURL(baseURL, listPath, query)
 }
 
 func cloneStringMap(in map[string]string) map[string]string {
@@ -267,56 +239,89 @@ func isLikelyJurisDocumentURL(v, base string, allowedHosts []string) bool {
 // Preconfigured Juris-based source constructors.
 func BadenWuerttemberg() Source {
 	return NewSource(Config{
-		Name:         "baden-wuerttemberg",
+		Name:         ProfileBadenWuerttemberg,
 		Jurisdiction: "DE-BW",
 	})
 }
 
 func Berlin() Source {
 	return NewSource(Config{
-		Name:         "berlin",
+		Name:         ProfileBerlin,
 		Jurisdiction: "DE-BE",
 	})
 }
 
 func Hessen() Source {
 	return NewSource(Config{
-		Name:         "hessen",
+		Name:         ProfileHessen,
 		Jurisdiction: "DE-HE",
 	})
 }
 
 func MecklenburgVorpommern() Source {
 	return NewSource(Config{
-		Name:         "mecklenburg-vorpommern",
+		Name:         ProfileMecklenburgVorpommern,
 		Jurisdiction: "DE-MV",
 	})
 }
 
 func RheinlandPfalz() Source {
 	return NewSource(Config{
-		Name:         "rheinland-pfalz",
+		Name:         ProfileRheinlandPfalz,
 		Jurisdiction: "DE-RP",
 	})
 }
 
 func SachsenAnhalt() Source {
 	return NewSource(Config{
-		Name:         "sachsen-anhalt",
+		Name:         ProfileSachsenAnhalt,
 		Jurisdiction: "DE-ST",
 	})
 }
 
 func SchleswigHolstein() Source {
 	return NewSource(Config{
-		Name:         "schleswig-holstein",
+		Name:         ProfileSchleswigHolstein,
 		Jurisdiction: "DE-SH",
 	})
 }
 
 func Thueringen() Source {
 	return NewSource(Config{
-		Name:         "thueringen",
+		Name:         ProfileThueringen,
 		Jurisdiction: "DE-TH",
 	})
+}
+
+// Convenience constructors with query overrides.
+func BadenWuerttembergWithQuery(overrides map[string]string) Source {
+	return BadenWuerttemberg().WithListQuery(overrides)
+}
+
+func BerlinWithQuery(overrides map[string]string) Source {
+	return Berlin().WithListQuery(overrides)
+}
+
+func HessenWithQuery(overrides map[string]string) Source {
+	return Hessen().WithListQuery(overrides)
+}
+
+func MecklenburgVorpommernWithQuery(overrides map[string]string) Source {
+	return MecklenburgVorpommern().WithListQuery(overrides)
+}
+
+func RheinlandPfalzWithQuery(overrides map[string]string) Source {
+	return RheinlandPfalz().WithListQuery(overrides)
+}
+
+func SachsenAnhaltWithQuery(overrides map[string]string) Source {
+	return SachsenAnhalt().WithListQuery(overrides)
+}
+
+func SchleswigHolsteinWithQuery(overrides map[string]string) Source {
+	return SchleswigHolstein().WithListQuery(overrides)
+}
+
+func ThueringenWithQuery(overrides map[string]string) Source {
+	return Thueringen().WithListQuery(overrides)
 }
