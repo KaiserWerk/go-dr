@@ -74,6 +74,7 @@ func (p XMLDocumentParser) Parse(raw []byte) (*godr.LegalDocument, error) {
 			Heading:    strings.TrimSpace(heading),
 			Content:    content,
 			References: normref.Extract(heading+"\n"+content, shortTitle),
+			NormChains: normref.ExtractChains(heading+"\n"+content, shortTitle),
 		})
 	}
 

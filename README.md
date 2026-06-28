@@ -13,7 +13,8 @@ Implemented foundations from the plan:
 - Phase 5 (start): Bundesrecht source with TOC listing and XML ZIP fetch/parse
 - Phase 6 (start): Juris-based state source adapter skeleton
 - Phase 7 (start): NRW source with dedicated list/result-page extraction
-- Phase 8 (start): direct reference extraction during section parsing
+- Phase 7 (start): BAYERN.RECHT, BRAVORS, REVOSax, and VORIS source adapters
+- Phase 8 (start): section-level reference extraction plus directed norm chains
 - Phase 9 (start): version validity model and stichtag lookup helper
 - Phase 10 (start): JSON and JSONL export package
 
@@ -49,7 +50,19 @@ go get github.com/KaiserWerk/go-dr
 	- dedicated parsing for NRW list/result pages
 	- stronger URL/title/id extraction from NRW anchors and result rows
 	- document fetch and parse pipeline for NRW legal pages
-	- uses the same normalized reference extraction pipeline as Bundesrecht
+	- uses the same normalized reference extraction and chain pipeline as Bundesrecht
+- `github.com/KaiserWerk/go-dr/sources/bayern`:
+	- dedicated parsing for BAYERN.RECHT list/document pages
+	- URL/title/id extraction and normalized references/chains
+- `github.com/KaiserWerk/go-dr/sources/brandenburg`:
+	- dedicated parsing for BRAVORS list/document pages
+	- URL/title/id extraction and normalized references/chains
+- `github.com/KaiserWerk/go-dr/sources/sachsen`:
+	- dedicated parsing for REVOSax list/document pages
+	- URL/title/id extraction and normalized references/chains
+- `github.com/KaiserWerk/go-dr/sources/niedersachsen`:
+	- dedicated parsing for VORIS list/document pages
+	- URL/title/id extraction and normalized references/chains
 - `github.com/KaiserWerk/go-dr/sources/juris`:
 	- shared adapter for Juris-based state portals
 	- configurable base URL, selector, allowed hosts, jurisdiction, listing path/query, and listing URL

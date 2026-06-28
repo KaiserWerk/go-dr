@@ -33,6 +33,7 @@ func (p HTMLDocumentParser) Parse(raw []byte) (*godr.LegalDocument, error) {
 	for i := range doc.Sections {
 		text := strings.TrimSpace(doc.Sections[i].Heading + "\n" + doc.Sections[i].Content)
 		doc.Sections[i].References = normref.Extract(text, shortTitle)
+		doc.Sections[i].NormChains = normref.ExtractChains(text, shortTitle)
 	}
 
 	doc.ShortTitle = shortTitle

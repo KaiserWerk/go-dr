@@ -1,4 +1,4 @@
-package nrw
+package bayern
 
 import (
 	"regexp"
@@ -9,14 +9,14 @@ import (
 	coreparser "github.com/KaiserWerk/go-dr/parser"
 )
 
-var shortTitlePattern = regexp.MustCompile(`\(([A-Za-z0-9.\-\s]{2,20})\)`)
+var shortTitlePattern = regexp.MustCompile(`\(([A-Za-z0-9.\-\s]{2,24})\)`)
 
 // Parser matches the core parser contract while allowing source-level specialization.
 type Parser interface {
 	Parse(raw []byte) (*godr.LegalDocument, error)
 }
 
-// HTMLDocumentParser parses NRW legal pages and enriches sections with normalized references.
+// HTMLDocumentParser parses BAYERN.RECHT pages and enriches sections with normalized references.
 type HTMLDocumentParser struct {
 	Base coreparser.HTMLDocumentParser
 }
@@ -36,7 +36,7 @@ func (p HTMLDocumentParser) Parse(raw []byte) (*godr.LegalDocument, error) {
 	}
 
 	doc.ShortTitle = shortTitle
-	doc.Jurisdiction = "DE-NW"
+	doc.Jurisdiction = "DE-BY"
 	if doc.Type == "" {
 		doc.Type = godr.DocumentTypeLaw
 	}
@@ -55,7 +55,7 @@ func detectShortTitle(title string) string {
 	}
 	abbr := strings.TrimSpace(m[1])
 	abbr = strings.Join(strings.Fields(abbr), " ")
-	if len(abbr) > 20 {
+	if len(abbr) > 24 {
 		return ""
 	}
 	return abbr

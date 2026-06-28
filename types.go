@@ -36,12 +36,19 @@ type Reference struct {
 	Target string
 }
 
+// NormChain describes a directed relation between two normalized legal references.
+type NormChain struct {
+	Source string
+	Target string
+}
+
 // Section is a normalized unit of legal content.
 type Section struct {
 	Identifier string
 	Heading    string
 	Content    string
 	References []Reference
+	NormChains []NormChain
 }
 
 // Version describes one validity window of a legal document version.
@@ -87,6 +94,10 @@ func (d *LegalDocument) Clone() *LegalDocument {
 			if d.Sections[i].References != nil {
 				clone.Sections[i].References = make([]Reference, len(d.Sections[i].References))
 				copy(clone.Sections[i].References, d.Sections[i].References)
+			}
+			if d.Sections[i].NormChains != nil {
+				clone.Sections[i].NormChains = make([]NormChain, len(d.Sections[i].NormChains))
+				copy(clone.Sections[i].NormChains, d.Sections[i].NormChains)
 			}
 		}
 	}
