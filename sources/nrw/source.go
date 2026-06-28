@@ -20,6 +20,7 @@ const (
 type Source struct {
 	Client       HTTPClient
 	Parser       Parser
+	Snapshots    crawler.SnapshotStore
 	ListURL      string
 	ListSelector string
 }
@@ -46,6 +47,7 @@ func (s Source) ListDocuments(ctx context.Context) ([]godr.DocumentRef, error) {
 	if status >= 400 {
 		return nil, fmt.Errorf("list request failed with status %d", status)
 	}
+	_ = s.saveSnapshot("list", payload)
 
 	return parseListDocumentRefs(listURL, payload, s.listSelector())
 }
@@ -66,6 +68,7 @@ func (s Source) FetchDocument(ctx context.Context, ref godr.DocumentRef) (*godr.
 	if status >= 400 {
 		return nil, fmt.Errorf("document request failed with status %d", status)
 	}
+	_ = s.saveSnapshot(ref.ID, payload)
 
 	doc, err := parser.Parse(payload)
 	if err != nil {
@@ -149,4 +152,12 @@ func isLikelyNRWDocumentURL(v string) bool {
 	pathLower := strings.ToLower(u.Path)
 	queryLower := strings.ToLower(u.RawQuery)
 	return strings.Contains(pathLower, "/lmi/") || strings.Contains(queryLower, "sg=") || strings.Contains(queryLower, "menu")
+}
+
+func (s Source) saveSnapshot(documentID string, payload []byte) error {
+	if s.Snapshots == nil || len(payload) == 0 {
+		return nil
+	}
+	_, err := s.Snapshots.Save(s.Name(), documentID, payload)
+	return err
 }

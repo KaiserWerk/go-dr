@@ -14,6 +14,7 @@ Implemented foundations from the plan:
 - Phase 6 (start): Juris-based state source adapter skeleton
 - Phase 7 (start): NRW source with dedicated list/result-page extraction
 - Phase 8 (start): direct reference extraction during section parsing
+- Phase 9 (start): version validity model and stichtag lookup helper
 - Phase 10 (start): JSON and JSONL export package
 
 No executable binaries are included.

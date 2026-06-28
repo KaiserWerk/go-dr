@@ -44,6 +44,12 @@ type Section struct {
 	References []Reference
 }
 
+// Version describes one validity window of a legal document version.
+type Version struct {
+	ValidFrom time.Time
+	ValidTo   *time.Time
+}
+
 // LegalDocument is the normalized representation consumed by downstream systems.
 type LegalDocument struct {
 	ID            string
@@ -56,6 +62,7 @@ type LegalDocument struct {
 	EffectiveTo   *time.Time
 	SourceURL     string
 	Sections      []Section
+	Versions      []Version
 	Metadata      map[string]string
 }
 
@@ -80,6 +87,17 @@ func (d *LegalDocument) Clone() *LegalDocument {
 			if d.Sections[i].References != nil {
 				clone.Sections[i].References = make([]Reference, len(d.Sections[i].References))
 				copy(clone.Sections[i].References, d.Sections[i].References)
+			}
+		}
+	}
+
+	if d.Versions != nil {
+		clone.Versions = make([]Version, len(d.Versions))
+		for i := range d.Versions {
+			clone.Versions[i] = d.Versions[i]
+			if d.Versions[i].ValidTo != nil {
+				v := *d.Versions[i].ValidTo
+				clone.Versions[i].ValidTo = &v
 			}
 		}
 	}

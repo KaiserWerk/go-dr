@@ -25,9 +25,10 @@ type Config struct {
 
 // Source is a shared adapter for Juris-based state portals.
 type Source struct {
-	cfg    Config
-	Client HTTPClient
-	Parser Parser
+	cfg       Config
+	Client    HTTPClient
+	Parser    Parser
+	Snapshots crawler.SnapshotStore
 }
 
 // HTTPClient is the minimal dependency required from a fetch client.
@@ -104,6 +105,7 @@ func (s Source) ListDocuments(ctx context.Context) ([]godr.DocumentRef, error) {
 	if status >= 400 {
 		return nil, fmt.Errorf("list request failed with status %d", status)
 	}
+	_ = s.saveSnapshot("list", payload)
 
 	return parseListDocumentRefs(listURL, s.cfg, payload)
 }
@@ -124,6 +126,7 @@ func (s Source) FetchDocument(ctx context.Context, ref godr.DocumentRef) (*godr.
 	if status >= 400 {
 		return nil, fmt.Errorf("document request failed with status %d", status)
 	}
+	_ = s.saveSnapshot(ref.ID, payload)
 
 	doc, err := parser.Parse(payload)
 	if err != nil {
@@ -167,6 +170,14 @@ func (s Source) ensureParser() Parser {
 		return s.Parser
 	}
 	return HTMLDocumentParser{Jurisdiction: s.cfg.Jurisdiction}
+}
+
+func (s Source) saveSnapshot(documentID string, payload []byte) error {
+	if s.Snapshots == nil || len(payload) == 0 {
+		return nil
+	}
+	_, err := s.Snapshots.Save(s.Name(), documentID, payload)
+	return err
 }
 
 func resolveURL(baseURL, href string) string {

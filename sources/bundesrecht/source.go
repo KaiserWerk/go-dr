@@ -10,7 +10,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/KaiserWerk/go-dr"
+	godr "github.com/KaiserWerk/go-dr"
 	"github.com/KaiserWerk/go-dr/crawler"
 )
 
@@ -22,9 +22,10 @@ const (
 
 // Source implements Bundesrecht ingestion from gesetze-im-internet.de.
 type Source struct {
-	Client HTTPClient
-	Parser Parser
-	TOCURL string
+	Client    HTTPClient
+	Parser    Parser
+	Snapshots crawler.SnapshotStore
+	TOCURL    string
 }
 
 // HTTPClient is the minimal dependency required from a fetch client.
@@ -47,6 +48,7 @@ func (s Source) ListDocuments(ctx context.Context) ([]godr.DocumentRef, error) {
 	if status >= 400 {
 		return nil, fmt.Errorf("toc request failed with status %d", status)
 	}
+	_ = s.saveSnapshot("toc", payload)
 
 	items, err := parseTOC(payload)
 	if err != nil {
@@ -91,6 +93,7 @@ func (s Source) FetchDocument(ctx context.Context, ref godr.DocumentRef) (*godr.
 	if status >= 400 {
 		return nil, fmt.Errorf("document request failed with status %d", status)
 	}
+	_ = s.saveSnapshot(ref.ID, payload)
 
 	rawXML, err := firstXMLFromZIP(payload)
 	if err != nil {
@@ -210,4 +213,12 @@ func (s Source) ensureParser() Parser {
 		return s.Parser
 	}
 	return XMLDocumentParser{}
+}
+
+func (s Source) saveSnapshot(documentID string, payload []byte) error {
+	if s.Snapshots == nil || len(payload) == 0 {
+		return nil
+	}
+	_, err := s.Snapshots.Save(s.Name(), documentID, payload)
+	return err
 }
