@@ -4,8 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
-	"github.com/KaiserWerk/go-dr"
+	godr "github.com/KaiserWerk/go-dr"
 )
 
 func TestXMLDocumentParser_Parse(t *testing.T) {
@@ -31,5 +32,29 @@ func TestXMLDocumentParser_Parse(t *testing.T) {
 	}
 	if len(doc.Sections) != 1 {
 		t.Fatalf("unexpected sections count: %d", len(doc.Sections))
+	}
+}
+
+func TestXMLDocumentParser_ParseDates(t *testing.T) {
+	raw := []byte(`<law id="x"><title>X</title><shortTitle>XT</shortTitle><jurisdiction>DE-BUND</jurisdiction><type>law</type><publishedAt>2020-01-02</publishedAt><effectiveFrom>03.04.2021</effectiveFrom><effectiveTo>20230405</effectiveTo><sections><section id="1"><heading>H</heading><content>C</content></section></sections></law>`)
+
+	p := XMLDocumentParser{}
+	doc, err := p.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse xml with dates: %v", err)
+	}
+
+	if doc.PublishedAt == nil || doc.PublishedAt.Format("2006-01-02") != "2020-01-02" {
+		t.Fatalf("unexpected PublishedAt: %v", doc.PublishedAt)
+	}
+	if doc.EffectiveFrom == nil || doc.EffectiveFrom.Format("2006-01-02") != "2021-04-03" {
+		t.Fatalf("unexpected EffectiveFrom: %v", doc.EffectiveFrom)
+	}
+	if doc.EffectiveTo == nil || doc.EffectiveTo.Format("2006-01-02") != "2023-04-05" {
+		t.Fatalf("unexpected EffectiveTo: %v", doc.EffectiveTo)
+	}
+
+	if doc.PublishedAt.Location() != time.UTC {
+		t.Fatalf("expected UTC timezone, got: %v", doc.PublishedAt.Location())
 	}
 }

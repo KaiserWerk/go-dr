@@ -3,22 +3,27 @@ package parser
 import (
 	"encoding/xml"
 	"errors"
+	"regexp"
 	"strings"
+	"time"
 
-	"github.com/KaiserWerk/go-dr"
+	godr "github.com/KaiserWerk/go-dr"
 )
 
 // XMLDocumentParser parses basic legal XML into a LegalDocument.
 type XMLDocumentParser struct{}
 
 type xmlLaw struct {
-	XMLName      xml.Name     `xml:"law"`
-	ID           string       `xml:"id,attr"`
-	Title        string       `xml:"title"`
-	ShortTitle   string       `xml:"shortTitle"`
-	Jurisdiction string       `xml:"jurisdiction"`
-	Type         string       `xml:"type"`
-	Sections     []xmlSection `xml:"sections>section"`
+	XMLName       xml.Name     `xml:"law"`
+	ID            string       `xml:"id,attr"`
+	Title         string       `xml:"title"`
+	ShortTitle    string       `xml:"shortTitle"`
+	PublishedAt   string       `xml:"publishedAt"`
+	EffectiveFrom string       `xml:"effectiveFrom"`
+	EffectiveTo   string       `xml:"effectiveTo"`
+	Jurisdiction  string       `xml:"jurisdiction"`
+	Type          string       `xml:"type"`
+	Sections      []xmlSection `xml:"sections>section"`
 }
 
 type xmlSection struct {
@@ -46,6 +51,9 @@ func (p XMLDocumentParser) Parse(raw []byte) (*godr.LegalDocument, error) {
 		Type:         normalizeDocType(x.Type),
 		Sections:     make([]godr.Section, 0, len(x.Sections)),
 	}
+	doc.PublishedAt = parseDateLoose(x.PublishedAt)
+	doc.EffectiveFrom = parseDateLoose(x.EffectiveFrom)
+	doc.EffectiveTo = parseDateLoose(x.EffectiveTo)
 
 	for _, s := range x.Sections {
 		doc.Sections = append(doc.Sections, godr.Section{
@@ -56,6 +64,28 @@ func (p XMLDocumentParser) Parse(raw []byte) (*godr.LegalDocument, error) {
 	}
 
 	return doc, nil
+}
+
+var anyDatePattern = regexp.MustCompile(`\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}\.\d{1,2}\.\d{4}|\d{8})\b`)
+
+func parseDateLoose(v string) *time.Time {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return nil
+	}
+
+	for _, layout := range []string{"2006-01-02", "02.01.2006", "2.1.2006", "20060102"} {
+		if ts, err := time.Parse(layout, v); err == nil {
+			t := ts.UTC()
+			return &t
+		}
+	}
+
+	match := anyDatePattern.FindString(v)
+	if match == "" || match == v {
+		return nil
+	}
+	return parseDateLoose(match)
 }
 
 func normalizeDocType(v string) godr.DocumentType {

@@ -16,6 +16,7 @@ Implemented foundations from the plan:
 - Phase 7 (start): BAYERN.RECHT, BRAVORS, REVOSax, and VORIS source adapters
 - Phase 8 (start): section-level reference extraction plus directed norm chains
 - Phase 9 (start): version validity model and stichtag lookup helper
+- Phase 9 (start): XML metadata date extraction for effective version windows
 - Phase 10 (start): JSON and JSONL export package
 
 No executable binaries are included.

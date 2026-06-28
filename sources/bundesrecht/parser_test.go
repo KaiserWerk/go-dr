@@ -73,3 +73,23 @@ func TestXMLDocumentParser_ParseChainAndMultiParagraph(t *testing.T) {
 		t.Fatalf("missing propagated chain reference BGB § 280 Abs. 1")
 	}
 }
+
+func TestXMLDocumentParser_ParseMetadataDates(t *testing.T) {
+	raw := []byte(`<dokumente><norm doknr="A"><metadaten><jurabk>BGB</jurabk><enbez>§ 1</enbez><titel>Gueltigkeit</titel><ausfertigung-datum>1950-01-02</ausfertigung-datum><inkrafttreten-datum>03.04.1951</inkrafttreten-datum><ausserkrafttreten>20991231</ausserkrafttreten></metadaten><textdaten><text><Content><P>Text.</P></Content></text></textdaten></norm></dokumente>`)
+
+	p := XMLDocumentParser{}
+	doc, err := p.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse xml with metadata dates: %v", err)
+	}
+
+	if doc.PublishedAt == nil || doc.PublishedAt.Format("2006-01-02") != "1950-01-02" {
+		t.Fatalf("unexpected PublishedAt: %v", doc.PublishedAt)
+	}
+	if doc.EffectiveFrom == nil || doc.EffectiveFrom.Format("2006-01-02") != "1951-04-03" {
+		t.Fatalf("unexpected EffectiveFrom: %v", doc.EffectiveFrom)
+	}
+	if doc.EffectiveTo == nil || doc.EffectiveTo.Format("2006-01-02") != "2099-12-31" {
+		t.Fatalf("unexpected EffectiveTo: %v", doc.EffectiveTo)
+	}
+}
