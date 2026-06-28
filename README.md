@@ -18,6 +18,7 @@ Implemented foundations from the plan:
 - Phase 9 (start): version validity model and stichtag lookup helper
 - Phase 9 (start): XML metadata date extraction for effective version windows
 - Phase 10 (start): JSON and JSONL export package
+- Phase 12 (start): GraphRAG knowledge graph layer (laws, paragraphs, directed legal relations)
 
 No executable binaries are included.
 
@@ -77,6 +78,10 @@ go get github.com/KaiserWerk/go-dr
 	- JSONL helpers for one-document-per-line exports
 	- PostgreSQL persistence store with schema bootstrap and transactional document upserts
 	- pgvector-ready embedding persistence and similarity search helpers
+- `github.com/KaiserWerk/go-dr/graphrag`:
+	- in-memory graph model for nodes/edges
+	- builder from normalized legal documents to graph nodes (laws, paragraphs, rulings)
+	- relation edges: references, cites, replaces, concretizes
 
 ## Quick Example
 
