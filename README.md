@@ -75,6 +75,8 @@ go get github.com/KaiserWerk/go-dr
 - `github.com/KaiserWerk/go-dr/exporter`:
 	- JSON marshaling helpers for single and multiple documents
 	- JSONL helpers for one-document-per-line exports
+	- PostgreSQL persistence store with schema bootstrap and transactional document upserts
+	- pgvector-ready embedding persistence and similarity search helpers
 
 ## Quick Example
 
