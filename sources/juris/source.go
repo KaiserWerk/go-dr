@@ -149,6 +149,7 @@ func (s Source) FetchDocument(ctx context.Context, ref godr.DocumentRef) (*godr.
 	if doc.Type == "" {
 		doc.Type = godr.DocumentTypeLaw
 	}
+	doc.EnsureVersions()
 
 	return doc, nil
 }
