@@ -120,6 +120,7 @@ func (p XMLDocumentParser) Parse(raw []byte) (*godr.LegalDocument, error) {
 	if title == "" && len(sections) > 0 {
 		title = sections[0].Heading
 	}
+	effectiveFrom, effectiveTo = normalizeEffectiveRange(effectiveFrom, effectiveTo)
 
 	return &godr.LegalDocument{
 		Title:         strings.TrimSpace(title),
@@ -162,6 +163,24 @@ func parseDateLoose(v string) *time.Time {
 		return nil
 	}
 	return parseDateLoose(match)
+}
+
+func normalizeEffectiveRange(from, to *time.Time) (*time.Time, *time.Time) {
+	if from == nil || to == nil {
+		return cloneTimePtr(from), cloneTimePtr(to)
+	}
+	if to.Before(*from) {
+		return cloneTimePtr(from), nil
+	}
+	return cloneTimePtr(from), cloneTimePtr(to)
+}
+
+func cloneTimePtr(v *time.Time) *time.Time {
+	if v == nil {
+		return nil
+	}
+	c := *v
+	return &c
 }
 
 func firstNonEmpty(values ...string) string {

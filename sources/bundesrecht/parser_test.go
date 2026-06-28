@@ -93,3 +93,20 @@ func TestXMLDocumentParser_ParseMetadataDates(t *testing.T) {
 		t.Fatalf("unexpected EffectiveTo: %v", doc.EffectiveTo)
 	}
 }
+
+func TestXMLDocumentParser_InvalidMetadataRangeDropsTo(t *testing.T) {
+	raw := []byte(`<dokumente><norm doknr="A"><metadaten><jurabk>BGB</jurabk><enbez>§ 1</enbez><titel>Gueltigkeit</titel><inkrafttreten-datum>2024-01-01</inkrafttreten-datum><ausserkrafttreten>20230101</ausserkrafttreten></metadaten><textdaten><text><Content><P>Text.</P></Content></text></textdaten></norm></dokumente>`)
+
+	p := XMLDocumentParser{}
+	doc, err := p.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse xml invalid metadata range: %v", err)
+	}
+
+	if doc.EffectiveFrom == nil || doc.EffectiveFrom.Format("2006-01-02") != "2024-01-01" {
+		t.Fatalf("unexpected EffectiveFrom: %v", doc.EffectiveFrom)
+	}
+	if doc.EffectiveTo != nil {
+		t.Fatalf("expected EffectiveTo=nil for invalid range, got: %v", doc.EffectiveTo)
+	}
+}

@@ -58,3 +58,20 @@ func TestXMLDocumentParser_ParseDates(t *testing.T) {
 		t.Fatalf("expected UTC timezone, got: %v", doc.PublishedAt.Location())
 	}
 }
+
+func TestXMLDocumentParser_InvalidEffectiveRangeDropsTo(t *testing.T) {
+	raw := []byte(`<law id="x"><title>X</title><shortTitle>XT</shortTitle><jurisdiction>DE-BUND</jurisdiction><type>law</type><effectiveFrom>2024-01-01</effectiveFrom><effectiveTo>2023-12-31</effectiveTo><sections><section id="1"><heading>H</heading><content>C</content></section></sections></law>`)
+
+	p := XMLDocumentParser{}
+	doc, err := p.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse xml invalid range: %v", err)
+	}
+
+	if doc.EffectiveFrom == nil || doc.EffectiveFrom.Format("2006-01-02") != "2024-01-01" {
+		t.Fatalf("unexpected EffectiveFrom: %v", doc.EffectiveFrom)
+	}
+	if doc.EffectiveTo != nil {
+		t.Fatalf("expected EffectiveTo=nil for invalid range, got: %v", doc.EffectiveTo)
+	}
+}

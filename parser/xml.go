@@ -50,8 +50,12 @@ func (p XMLDocumentParser) Parse(raw []byte) (*godr.LegalDocument, error) {
 		Sections:     make([]godr.Section, 0, len(x.Sections)),
 	}
 	doc.PublishedAt = parseDateLoose(x.PublishedAt)
-	doc.EffectiveFrom = parseDateLoose(x.EffectiveFrom)
-	doc.EffectiveTo = parseDateLoose(x.EffectiveTo)
+	doc.EffectiveFrom, doc.EffectiveTo = resolveEffectiveRange(
+		parseDateLoose(x.EffectiveFrom),
+		parseDateLoose(x.EffectiveTo),
+		nil,
+		nil,
+	)
 
 	for _, s := range x.Sections {
 		doc.Sections = append(doc.Sections, godr.Section{
