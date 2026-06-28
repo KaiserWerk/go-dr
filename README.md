@@ -11,7 +11,8 @@ Implemented foundations from the plan:
 - Phase 3: crawler client abstractions (retry, rate limit, snapshot)
 - Phase 4: parser interface plus HTML/XML base parsers and offline tests
 - Phase 5 (start): Bundesrecht source with TOC listing and XML ZIP fetch/parse
-- Phase 10 (start): JSON export package
+- Phase 8 (start): direct reference extraction during section parsing
+- Phase 10 (start): JSON and JSONL export package
 
 No executable binaries are included.
 
@@ -39,8 +40,11 @@ go get github.com/KaiserWerk/go-dr
 - `github.com/KaiserWerk/go-dr/sources/bundesrecht`:
 	- TOC listing from `gii-toc.xml`
 	- law document download (`xml.zip`) and parsing
+	- section-level extraction of paragraph/article/law references
+	- support for chained references (for example i. V. m.) and multi-paragraph forms (`§§ ...`)
 - `github.com/KaiserWerk/go-dr/exporter`:
 	- JSON marshaling helpers for single and multiple documents
+	- JSONL helpers for one-document-per-line exports
 
 ## Quick Example
 
